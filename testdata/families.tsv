@@ -1,0 +1,2 @@
+run_id	proband_id	vcf_path	vcf_index_path	proband_sex	mother_id	father_id
+0	1234	vcf_path	vcf_index_path	M	23456	65432

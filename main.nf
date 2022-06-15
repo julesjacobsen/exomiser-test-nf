@@ -29,51 +29,49 @@ if (params.help) {
 // Define channels from repository files
 projectDir = workflow.projectDir
 ch_run_sh_script = Channel.fromPath("${projectDir}/bin/run.sh")
+ch_template_config_yaml = Channel.fromPath("${projectDir}/bin/template_config.yaml")
+ch_template_application_properties = Channel.fromPath("${projectDir}/bin/application.properties")
 
 // Define Channels from input
+// runID, Proband ID, VCF_path, VCF_index_path,Proband sex, Mother ID, Father ID
 Channel
-    .fromPath(params.input)
+    .fromPath(params.families_file)
     .ifEmpty { exit 1, "Cannot find input file : ${params.input}" }
-    .splitCsv(skip:1)
-    .map {sample_name, file_path -> [ sample_name, file_path ] }
+    .splitCsv(skip:1, sep:'\t')
+    .map { run_id, proband_id, vcf_path, vcf_index_path, proband_sex, mother_id, father_id -> [ run_id, proband_id, file(vcf_path), file(vcf_index_path), proband_sex, mother_id, father_id ] }
     .set { ch_input }
 
-// Define Process
-process step_1 {
-    tag "$sample_name"
-    label 'low_memory'
-    publishDir "${params.outdir}", mode: 'copy'
-
-    input:
-    set val(sample_name), file(input_file) from ch_input
-    file(run_sh_script) from ch_run_sh_script
-    
-    output:
-    file "input_file_head.txt" into ch_out
-
-    script:
-    """
-    run.sh
-    head $input_file > input_file_head.txt
-    """
-  }
-
-ch_report_dir = Channel.value(file("${projectDir}/bin/report"))
-
-process report {
-    publishDir "${params.outdir}/MultiQC", mode: 'copy'
-
-    input:
-    file(report_dir) from ch_report_dir
-    file(table) from ch_out
-    
-    output:
-    file "multiqc_report.html" into ch_multiqc_report
-
-    script:
-    """
-    cp -r ${report_dir}/* .
-    Rscript -e "rmarkdown::render('report.Rmd',params = list(res_table='$table'))"
-    mv report.html multiqc_report.html
-    """
-}
+	ch_input.view()
+//
+// // Define Process
+// process run_exomiser {
+//     tag "$sample_name"
+//     label 'low_memory'
+//     publishDir "${params.outdir}", mode: 'copy'
+//     container "exomiser/exomiser-cli:sha@2f0d869de8b0"
+//
+//     input:
+//     set val(sample_name), file(input_file) from ch_input
+//     file(template_config_yaml) from ch_template_config_yaml
+//
+//     output:
+//     file "${output_file}*" into ch_out
+//
+//     script:
+//     """
+//     #-v "/data/exomiser-data:/exomiser-data" \
+//     # -v "/opt/exomiser/exomiser-config/:/exomiser"  \
+//     # -v "/opt/exomiser/exomiser-cli-${project.version}/results:/results"  \
+//     cp ${template_config_yaml} exomiser_analysis.yml
+//     sed -i  "s/assembly_placeholder/${assembly}/" exomiser_analysis.yml
+//     sed -i  "s/vcf_placeholder/${vcf}/" exomiser_analysis.yml
+//     sed -i  "s/ped_placeholder/${ped}/" exomiser_analysis.yml
+//     sed -i  "s/proband_placeholder/${proband}/" exomiser_analysis.yml
+//     sed -i  "s/hpo_placeholder/${hpo}/" exomiser_analysis.yml
+//     sed -i  "s/output_file_placeholder/${output_file}/" exomiser_analysis.yml
+//
+//      exomiser-cli  \
+//      --analysis exomiser_analysis.yml  \
+//      --spring.config.location=/exomiser/application.properties
+//     """
+//   }
