@@ -31,6 +31,8 @@ projectDir = workflow.projectDir
 ch_run_sh_script = Channel.fromPath("${projectDir}/bin/run.sh")
 ch_template_config_yaml = Channel.fromPath("${projectDir}/bin/template_config.yaml")
 ch_template_application_properties = Channel.fromPath("${projectDir}/bin/application.properties")
+ch_genome_data = Channel.fromPath("${params.genome_data_path}")
+ch_phenotype_data = Channel.fromPath("${params.phenotype_data_path}")
 
 // Define Channels from input
 // runID, Proband ID, VCF_path, VCF_index_path,Proband sex, Mother ID, Father ID
@@ -39,39 +41,63 @@ Channel
     .ifEmpty { exit 1, "Cannot find input file : ${params.input}" }
     .splitCsv(skip:1, sep:'\t')
     .map { run_id, proband_id, vcf_path, vcf_index_path, proband_sex, mother_id, father_id -> [ run_id, proband_id, file(vcf_path), file(vcf_index_path), proband_sex, mother_id, father_id ] }
-    .set { ch_input }
+    .into { ch_input; ch_input_view }
 
-	ch_input.view()
-//
-// // Define Process
-// process run_exomiser {
-//     tag "$sample_name"
-//     label 'low_memory'
-//     publishDir "${params.outdir}", mode: 'copy'
-//     container "exomiser/exomiser-cli:sha@2f0d869de8b0"
-//
-//     input:
-//     set val(sample_name), file(input_file) from ch_input
-//     file(template_config_yaml) from ch_template_config_yaml
-//
-//     output:
-//     file "${output_file}*" into ch_out
-//
-//     script:
-//     """
-//     #-v "/data/exomiser-data:/exomiser-data" \
-//     # -v "/opt/exomiser/exomiser-config/:/exomiser"  \
-//     # -v "/opt/exomiser/exomiser-cli-${project.version}/results:/results"  \
-//     cp ${template_config_yaml} exomiser_analysis.yml
-//     sed -i  "s/assembly_placeholder/${assembly}/" exomiser_analysis.yml
-//     sed -i  "s/vcf_placeholder/${vcf}/" exomiser_analysis.yml
-//     sed -i  "s/ped_placeholder/${ped}/" exomiser_analysis.yml
-//     sed -i  "s/proband_placeholder/${proband}/" exomiser_analysis.yml
-//     sed -i  "s/hpo_placeholder/${hpo}/" exomiser_analysis.yml
-//     sed -i  "s/output_file_placeholder/${output_file}/" exomiser_analysis.yml
-//
-//      exomiser-cli  \
-//      --analysis exomiser_analysis.yml  \
-//      --spring.config.location=/exomiser/application.properties
-//     """
-//   }
+    ch_input_view.view()
+
+// Define Process
+process run_exomiser {
+    tag "$sample_name"
+    label 'low_memory'
+    publishDir "${params.outdir}", mode: 'copy'
+    container "hub.docker.com/exomiser/exomiser-cli:sha@2f0d869de8b0"
+
+    input:
+    set val(run_id), val(proband_id), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
+    file(template_config_yaml) from ch_template_config_yaml
+    file(template_application_properties) from ch_template_application_properties
+
+    output:
+    file "${output_file}*" into ch_out
+
+    script:
+    // TODO this needs adding to the input TSV file
+    def hpo = ''
+    // groovy script to create PED file from inputs.
+    // Limitation - it will only cope with a trio max. Singletons will need 0 in place of the missing mother/father ids
+    def sex = to_ped_sex("${proband_sex}")
+    // Family_ID	Individual_ID	Paternal_ID	Maternal_ID	sex	Phenotype (1=unaffected, 2=affected)
+    def ped = "${run_id}\t${proband_id}\t${father_id}\t${mother_id}\t${sex}\t2\n"
+    def ped_path = new File("${proband_id}.ped")
+    ped_path.write(ped)
+
+    """
+    cp ${template_config_yaml} exomiser_analysis.yml
+    sed -i  "s/assembly_placeholder/${params.assembly}/" exomiser_analysis.yml
+    sed -i  "s/vcf_placeholder/${vcf_path}/" exomiser_analysis.yml
+    sed -i  "s/ped_placeholder/${ped_path}/" exomiser_analysis.yml
+    sed -i  "s/proband_placeholder/${proband_id}/" exomiser_analysis.yml
+    sed -i  "s/hpo_placeholder/${hpo}/" exomiser_analysis.yml
+    sed -i  "s/output_file_placeholder/${proband_id}/" exomiser_analysis.yml
+
+    # volume information - should have been handled by nextflow?
+    # -v "/data/exomiser-data:/exomiser-data" \
+    # -v "/opt/exomiser/exomiser-config/:/exomiser"  \
+    # -v "/results:/results"  \
+
+    exomiser-cli  \
+     --analysis exomiser_analysis.yml  \
+     --spring.config.location=${template_application_properties}
+     --exomiser.data-directory='.'
+     --exomiser.${params.assembly}.data-version=${params.assembly_data_version}
+     --exomiser.phenotype.data-version=${params.phenotype_data_version}
+    """
+  }
+
+def to_ped_sex(sex) {
+    switch (sex) {
+        case 'M': return 1
+        case 'F': return 2
+        default: return 0
+    }
+}
