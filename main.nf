@@ -50,7 +50,7 @@ process run_exomiser {
     tag "$sample_name"
     label 'low_memory'
     publishDir "${params.outdir}", mode: 'copy'
-    container "hub.docker.com/exomiser/exomiser-cli:sha@2f0d869de8b0"
+    container 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
 
     input:
     set val(run_id), val(proband_id), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
