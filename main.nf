@@ -65,9 +65,9 @@ process run_exomiser {
     def hpo = ''
     // groovy script to create PED file from inputs.
     // Limitation - it will only cope with a trio max. Singletons will need 0 in place of the missing mother/father ids
-    def sex = to_ped_sex("${proband_sex}")
     // Family_ID	Individual_ID	Paternal_ID	Maternal_ID	sex	Phenotype (1=unaffected, 2=affected)
-    def ped = "${run_id}\t${proband_id}\t${father_id}\t${mother_id}\t${sex}\t2\n"
+    // need mother and father rows!
+    def ped = createPed("${run_id}", "${proband_id}", "${father_id}", "${mother_id}", "${proband_sex}")
     def ped_path = new File("${proband_id}.ped")
     ped_path.write(ped)
 
@@ -94,7 +94,18 @@ process run_exomiser {
     """
   }
 
-def to_ped_sex(sex) {
+def createPed(runId, probandId, fatherId, motherId, probandSex) {
+    def motherLine = personLine(runId, motherId, 0, 0, toPedSex('F'), 1)
+    def fatherLine = personLine(runId, fatherId, 0, 0, toPedSex('M'), 1)
+    def probandLine = personLine(runId, probandId, fatherId, motherId, toPedSex(probandSex), 2)
+    "${motherLine}${fatherLine}${probandLine}"
+}
+
+def personLine(runId, probandId, fatherId, motherId, sex, affected) {
+    "${runId}\t${probandId}\t${fatherId}\t${motherId}\t${sex}\t${affected}\n"
+}
+
+def toPedSex(sex) {
     switch (sex) {
         case 'M': return 1
         case 'F': return 2
