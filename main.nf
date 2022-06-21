@@ -40,7 +40,7 @@ Channel
     .fromPath(params.families_file)
     .ifEmpty { exit 1, "Cannot find input file : ${params.input}" }
     .splitCsv(skip:1, sep:'\t')
-    .map { run_id, proband_id, vcf_path, vcf_index_path, proband_sex, mother_id, father_id -> [ run_id, proband_id, file(vcf_path), file(vcf_index_path), proband_sex, mother_id, father_id ] }
+    .map { run_id, proband_id, hpo, vcf_path, vcf_index_path, proband_sex, mother_id, father_id -> [ run_id, proband_id, hpo, file(vcf_path), file(vcf_index_path), proband_sex, mother_id, father_id ] }
     .into { ch_input; ch_input_view }
 
     ch_input_view.view()
@@ -53,7 +53,7 @@ process run_exomiser {
     container 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
 
     input:
-    set val(run_id), val(proband_id), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
+    set val(run_id), val(proband_id), val(hpo), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
     file(template_config_yaml) from ch_template_config_yaml
     file(template_application_properties) from ch_template_application_properties
 
@@ -62,8 +62,7 @@ process run_exomiser {
 
     script:
     // TODO this needs adding to the input TSV file
-    def hpo = ''
-    // groovy script to create PED file from inputs.
+    def hpo_ids = formatHpoIds("${hpo}")
     // Limitation - it will only cope with a trio max. Singletons will need 0 in place of the missing mother/father ids
     // Family_ID	Individual_ID	Paternal_ID	Maternal_ID	sex	Phenotype (1=unaffected, 2=affected)
     // need mother and father rows!
@@ -77,7 +76,7 @@ process run_exomiser {
     sed -i  "s/vcf_placeholder/${vcf_path}/" exomiser_analysis.yml
     sed -i  "s/ped_placeholder/${ped_path}/" exomiser_analysis.yml
     sed -i  "s/proband_placeholder/${proband_id}/" exomiser_analysis.yml
-    sed -i  "s/hpo_placeholder/${hpo}/" exomiser_analysis.yml
+    sed -i  "s/hpo_placeholder/${hpo_ids}/" exomiser_analysis.yml
     sed -i  "s/output_file_placeholder/${proband_id}/" exomiser_analysis.yml
 
     # volume information - should have been handled by nextflow?
@@ -111,4 +110,11 @@ def toPedSex(sex) {
         case 'F': return 2
         default: return 0
     }
+}
+
+def formatHpoIds(hpo) {
+    if (!hpo || hpo == '.') {
+        return ''
+    }
+    hpo.split(',').each(hp -> "'${hp}'").join(', ')
 }
