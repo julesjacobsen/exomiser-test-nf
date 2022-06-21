@@ -1,2 +1,2 @@
 run_id	proband_id	hpo	vcf_path	vcf_index_path	proband_sex	mother_id	father_id
-0	manuel	HP:0001156,HP:0001363,HP:0011304,HP:0010055	/home/hhx640/Documents/exomiser-cli-dev/examples/Pfeiffer.vcf	.	M	.	.
+0	manuel	HP:0001156,HP:0001363,HP:0011304,HP:0010055	testdata/Pfeiffer.vcf.gz	.	M	.	.
