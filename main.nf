@@ -64,13 +64,11 @@ process run_exomiser {
     // TODO this needs adding to the input TSV file
     def hpo_ids = formatHpoIds("${hpo}")
     // Limitation - it will only cope with a trio max. Singletons will need 0 in place of the missing mother/father ids
-    // Family_ID	Individual_ID	Paternal_ID	Maternal_ID	sex	Phenotype (1=unaffected, 2=affected)
-    // need mother and father rows!
     def ped = createPed("${run_id}", "${proband_id}", "${father_id}", "${mother_id}", "${proband_sex}")
-    def ped_path = new File("${proband_id}.ped")
-    ped_path.write(ped)
-
+    def ped_path = "${proband_id}.ped"
     """
+    # hacky stuff to get pedigree into working directory instead of root
+    printf '$ped' >> $ped_path
     cp ${template_config_yaml} exomiser_analysis.yml
     sed -i  "s/assembly_placeholder/${params.assembly}/" exomiser_analysis.yml
     sed -i  "s/vcf_placeholder/${vcf_path}/" exomiser_analysis.yml
@@ -93,15 +91,19 @@ process run_exomiser {
     """
   }
 
-def createPed(runId, probandId, fatherId, motherId, probandSex) {
-    def motherLine = personLine(runId, motherId, 0, 0, toPedSex('F'), 1)
-    def fatherLine = personLine(runId, fatherId, 0, 0, toPedSex('M'), 1)
-    def probandLine = personLine(runId, probandId, fatherId, motherId, toPedSex(probandSex), 2)
+def createPed(familyId, probandId, fatherId, motherId, probandSex) {
+    // Family_ID	Individual_ID	Paternal_ID	Maternal_ID	sex	Phenotype (1=unaffected, 2=affected)
+    def motherLine = personLine(familyId, motherId, 0, 0, 'F', 1)
+    def fatherLine = personLine(familyId, fatherId, 0, 0, 'M', 1)
+    def probandLine = personLine(familyId, probandId, fatherId, motherId, probandSex, 2)
     "${motherLine}${fatherLine}${probandLine}"
 }
 
-def personLine(runId, probandId, fatherId, motherId, sex, affected) {
-    "${runId}\t${probandId}\t${fatherId}\t${motherId}\t${sex}\t${affected}\n"
+def personLine(familyId, individualId, fatherId, motherId, individualSex, affected) {
+    if (!individualId || individualId == '.') {
+        return ''
+    }
+    "${familyId}\t${individualId}\t${fatherId}\t${motherId}\t${-> toPedSex(individualSex)}\t${affected}\n"
 }
 
 def toPedSex(sex) {
