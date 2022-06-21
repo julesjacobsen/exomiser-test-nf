@@ -50,7 +50,9 @@ process run_exomiser {
     tag "$sample_name"
     label 'low_memory'
     publishDir "${params.outdir}", mode: 'copy'
-    container 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
+    // container 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
+    container 'quay.io/lifebitai/exomiser:12.1.0'
+    containerOptions '-v "/home/hhx640/Documents/exomiser-data:/exomiser-data"'
 
     input:
     set val(run_id), val(proband_id), val(hpo), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
@@ -68,7 +70,7 @@ process run_exomiser {
     def ped_path = "${proband_id}.ped"
     """
     # hacky stuff to get pedigree into working directory instead of root
-    printf '$ped' >> $ped_path
+    printf '${ped}' >> ${ped_path}
     cp ${template_config_yaml} exomiser_analysis.yml
     sed -i  "s/assembly_placeholder/${params.assembly}/" exomiser_analysis.yml
     sed -i  "s/vcf_placeholder/${vcf_path}/" exomiser_analysis.yml
@@ -82,12 +84,11 @@ process run_exomiser {
     # -v "/opt/exomiser/exomiser-config/:/exomiser"  \
     # -v "/results:/results"  \
 
-    exomiser-cli  \
+    java -jar /exomiser/exomiser-cli-12.1.0.jar  \
      --analysis exomiser_analysis.yml  \
-     --spring.config.location=${template_application_properties}
-     --exomiser.data-directory='.'
-     --exomiser.${params.assembly}.data-version=${params.assembly_data_version}
-     --exomiser.phenotype.data-version=${params.phenotype_data_version}
+     --exomiser.data-directory=/exomiser-data \
+     --exomiser.hg19.data-version=2202 \
+     --exomiser.phenotype.data-version=2202
     """
   }
 
@@ -96,6 +97,9 @@ def createPed(familyId, probandId, fatherId, motherId, probandSex) {
     def motherLine = personLine(familyId, motherId, 0, 0, 'F', 1)
     def fatherLine = personLine(familyId, fatherId, 0, 0, 'M', 1)
     def probandLine = personLine(familyId, probandId, fatherId, motherId, probandSex, 2)
+    if (!motherLine && !fatherLine) {
+        return personLine(familyId, probandId, 0, 0, probandSex, 2)
+    }
     "${motherLine}${fatherLine}${probandLine}"
 }
 

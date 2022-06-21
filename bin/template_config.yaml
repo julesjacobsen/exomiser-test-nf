@@ -4,7 +4,7 @@ analysis:
   genomeAssembly: assembly_placeholder
   vcf: vcf_placeholder
   ped: ped_placeholder
-  proband: proband_placeholder
+  proband: 'proband_placeholder'
   hpoIds: [hpo_placeholder]
   # These are the default settings, with values representing the maximum minor allele frequency in percent (%) permitted for an
   # allele to be considered as a causative candidate under that mode of inheritance.
@@ -131,6 +131,6 @@ outputOptions:
   # according to the outputFormats option. If unspecified this will default to the following:
   # {exomiserDir}/results/input-vcf-name-exomiser-results.html
   # alternatively, specify a fully qualifed path only. e.g. /users/jules/exomes/analysis
-  outputPrefix: output_file_placeholder
+  outputPrefix: 'output_file_placeholder'
   #out-format options: HTML, JSON, TSV_GENE, TSV_VARIANT, VCF (default: HTML)
   outputFormats: [HTML, JSON, TSV_GENE, TSV_VARIANT, VCF]
