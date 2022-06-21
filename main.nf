@@ -45,6 +45,12 @@ Channel
 
     ch_input_view.view()
 
+Channel
+    .fromPath("${params.exomiser_data_path}", type: 'dir')
+    .map { exomiser_data_path -> [file(exomiser_data_path)] }
+    .set { ch_exomiser_data_path }
+
+
 // Define Process
 process run_exomiser {
     tag "$sample_name"
@@ -52,12 +58,17 @@ process run_exomiser {
     publishDir "${params.outdir}", mode: 'copy'
     // container 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
     container 'quay.io/lifebitai/exomiser:12.1.0'
-    containerOptions '-v "/home/hhx640/Documents/exomiser-data:/exomiser-data"'
+//     containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
+    containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
+    // TODO: this bit is broken - the ${params.exomiser_data_path} works locally using an absolute path
+    // https://github.com/julesjacobsen/exomiser-test-nf/issues/3
+//     containerOptions "-v exomiser-data:/exomiser-data"
 
     input:
     set val(run_id), val(proband_id), val(hpo), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
     file(template_config_yaml) from ch_template_config_yaml
     file(template_application_properties) from ch_template_application_properties
+    file(exomiser_data_path) from ch_exomiser_data_path
 
     output:
     file "${output_file}*" into ch_out
