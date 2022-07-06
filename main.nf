@@ -64,7 +64,7 @@ process prepare_exomiser_input_files {
 
     script:
     // TODO this needs adding to the input TSV file
-    def hpo_ids = formatHpoIds("${hpo}")
+//     def hpo_ids = formatHpoIds("${hpo}")
     // Limitation - it will only cope with a trio max. Singletons will need 0 in place of the missing mother/father ids
     def ped = createPed("${run_id}", "${proband_id}", "${father_id}", "${mother_id}", "${proband_sex}")
     def ped_path = "${proband_id}.ped"
@@ -77,7 +77,7 @@ process prepare_exomiser_input_files {
     sed -i  "s/vcf_placeholder/${proband_id}.vcf.gz/" ${proband_id}-analysis.yml
     sed -i  "s/ped_placeholder/${ped_path}/" ${proband_id}-analysis.yml
     sed -i  "s/proband_placeholder/${proband_id}/" ${proband_id}-analysis.yml
-    sed -i  "s/hpo_placeholder/${hpo_ids}/" ${proband_id}-analysis.yml
+    sed -i  "s/hpo_placeholder/${hpo}/" ${proband_id}-analysis.yml
     sed -i  "s/output_file_placeholder/${proband_id}/" ${proband_id}-analysis.yml
     """
   }
@@ -108,12 +108,12 @@ def toPedSex(sex) {
     }
 }
 
-def formatHpoIds(hpo) {
-    if (!hpo || hpo == '.') {
-        return ''
-    }
-    hpo.split(',').each(hp -> "'${hp}'").join(', ')
-}
+// def formatHpoIds(hpo) {
+//     if (!hpo || hpo == '.') {
+//         return ''
+//     }
+//     hpo.split(',').each(hp -> '${hp}').join(', ')
+// }
 
 process run_exomiser {
     disk = '2.GB'
