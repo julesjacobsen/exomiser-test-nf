@@ -30,9 +30,6 @@ if (params.help) {
 projectDir = workflow.projectDir
 ch_run_sh_script = Channel.fromPath("${projectDir}/bin/run.sh")
 ch_template_config_yaml = Channel.fromPath("${projectDir}/bin/template_config.yaml")
-ch_template_application_properties = Channel.fromPath("${projectDir}/bin/application.properties")
-ch_genome_data = Channel.fromPath("${params.genome_data_path}")
-ch_phenotype_data = Channel.fromPath("${params.phenotype_data_path}")
 
 // Define Channels from input
 // runID, Proband ID, VCF_path, VCF_index_path,Proband sex, Mother ID, Father ID
@@ -52,26 +49,18 @@ Channel
 
 
 // Define Process
-process run_exomiser {
+process prepare_exomiser_input_files {
     tag "$sample_name"
     label 'low_memory'
-    publishDir "${params.outdir}", mode: 'copy'
-    // container 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
-    container 'quay.io/lifebitai/exomiser:12.1.0'
-//     containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
-    containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
-    // TODO: this bit is broken - the ${params.exomiser_data_path} works locally using an absolute path
-    // https://github.com/julesjacobsen/exomiser-test-nf/issues/3
-//     containerOptions "-v exomiser-data:/exomiser-data"
 
     input:
-    set val(run_id), val(proband_id), val(hpo), file(vcf_path), file(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
-    file(template_config_yaml) from ch_template_config_yaml
-    file(template_application_properties) from ch_template_application_properties
-    file(exomiser_data_path) from ch_exomiser_data_path
+    set val(run_id), val(proband_id), val(hpo), path(vcf_path), path(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
+    path(template_config_yaml) from ch_template_config_yaml
+//     path(template_application_properties) from ch_template_application_properties
 
     output:
-    file "${output_file}*" into ch_out
+    file "${proband_id}*.{ped,yml,gz}" into ch_input_files
+    val(proband_id) into ch_proband_id
 
     script:
     // TODO this needs adding to the input TSV file
@@ -82,24 +71,14 @@ process run_exomiser {
     """
     # hacky stuff to get pedigree into working directory instead of root
     printf '${ped}' >> ${ped_path}
-    cp ${template_config_yaml} exomiser_analysis.yml
-    sed -i  "s/assembly_placeholder/${params.assembly}/" exomiser_analysis.yml
-    sed -i  "s/vcf_placeholder/${vcf_path}/" exomiser_analysis.yml
-    sed -i  "s/ped_placeholder/${ped_path}/" exomiser_analysis.yml
-    sed -i  "s/proband_placeholder/${proband_id}/" exomiser_analysis.yml
-    sed -i  "s/hpo_placeholder/${hpo_ids}/" exomiser_analysis.yml
-    sed -i  "s/output_file_placeholder/${proband_id}/" exomiser_analysis.yml
-
-    # volume information - should have been handled by nextflow?
-    # -v "/data/exomiser-data:/exomiser-data" \
-    # -v "/opt/exomiser/exomiser-config/:/exomiser"  \
-    # -v "/results:/results"  \
-
-    java -jar /exomiser/exomiser-cli-12.1.0.jar  \
-     --analysis exomiser_analysis.yml  \
-     --exomiser.data-directory=/exomiser-data \
-     --exomiser.hg19.data-version=2202 \
-     --exomiser.phenotype.data-version=2202
+    cp ${template_config_yaml} ${proband_id}-analysis.yml
+    mv ${vcf_path} ${proband_id}.vcf.gz
+    sed -i  "s/assembly_placeholder/${params.assembly}/" ${proband_id}-analysis.yml
+    sed -i  "s/vcf_placeholder/${proband_id}.vcf.gz/" ${proband_id}-analysis.yml
+    sed -i  "s/ped_placeholder/${ped_path}/" ${proband_id}-analysis.yml
+    sed -i  "s/proband_placeholder/${proband_id}/" ${proband_id}-analysis.yml
+    sed -i  "s/hpo_placeholder/${hpo_ids}/" ${proband_id}-analysis.yml
+    sed -i  "s/output_file_placeholder/${proband_id}/" ${proband_id}-analysis.yml
     """
   }
 
@@ -134,4 +113,32 @@ def formatHpoIds(hpo) {
         return ''
     }
     hpo.split(',').each(hp -> "'${hp}'").join(', ')
+}
+
+process run_exomiser {
+    disk = '2.GB'
+    cpus = 4
+    memory = '12.GB'
+    // TODO: how to enable NextFlow to run this using the container specified entry-point rather than /bin/bash?
+//     container = 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
+    container 'quay.io/lifebitai/exomiser:12.1.0'
+    containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
+//     publishDir "${params.report_dir}", mode: 'copy'
+
+    input:
+        set val(proband_id) from ch_proband_id
+        path(x) from ch_input_files
+        path(exomiser_data_path) from ch_exomiser_data_path
+
+//     output:
+//         file "${proband_id}*.{html,json,tsv}" into ch_out
+
+    script:
+    """
+    java -jar /exomiser/exomiser-cli-12.1.0.jar  \
+     --analysis "${proband_id}"-analysis.yml  \
+     --exomiser.data-directory=/exomiser-data \
+     --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
+     --exomiser.phenotype.data-version=${params.phenotype_data_version}
+    """
 }
