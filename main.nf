@@ -135,6 +135,7 @@ process run_exomiser {
 
     script:
     """
+    ls -l /exomiser-data
     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
      --analysis "${proband_id}"-analysis.yml  \
      --exomiser.data-directory=/exomiser-data \
