@@ -135,9 +135,12 @@ process run_exomiser {
 
     script:
     """
+    # Create symlink between absolut path of the staged folder and the folder defined in application.properties "/data/exomiser-data"
+    # see here: https://github.com/julesjacobsen/exomiser-test-nf/blob/0df9324df65a358e226e3898f92d1783e9702990/bin/application.properties#L26
+    ln -s "\$PWD/$exomiser_data_path/" /data/exomiser-data
     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
      --analysis "${proband_id}"-analysis.yml  \
-     --exomiser.data-directory=/exomiser-data \
+     --exomiser.data-directory='.' \
      --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
      --exomiser.phenotype.data-version=${params.phenotype_data_version}
     """
