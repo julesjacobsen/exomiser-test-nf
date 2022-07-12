@@ -56,7 +56,6 @@ process prepare_exomiser_input_files {
     input:
     set val(run_id), val(proband_id), val(hpo), path(vcf_path), path(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
     path(template_config_yaml) from ch_template_config_yaml
-//     path(template_application_properties) from ch_template_application_properties
 
     output:
     file "${proband_id}*.{ped,yml,gz}" into ch_input_files
@@ -122,22 +121,27 @@ process run_exomiser {
     // TODO: how to enable NextFlow to run this using the container specified entry-point rather than /bin/bash?
 //     container = 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
     container 'quay.io/lifebitai/exomiser:12.1.0'
-    containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
+    containerOptions "-v ${params.exomiser_data_path}:/data/exomiser-data"
 //     publishDir "${params.report_dir}", mode: 'copy'
 
     input:
         set val(proband_id) from ch_proband_id
         path(x) from ch_input_files
         path(exomiser_data_path) from ch_exomiser_data_path
+        path(application_properties) from ch_template_application_properties
 
 //     output:
 //         file "${proband_id}*.{html,json,tsv}" into ch_out
 
     script:
     """
+    # Create symlink between absolut path of the staged folder and the folder defined in application.properties "/data/exomiser-data"
+    # see here: https://github.com/julesjacobsen/exomiser-test-nf/blob/0df9324df65a358e226e3898f92d1783e9702990/bin/application.properties#L26
+    ln -s "\$PWD/$exomiser_data_path/" /data/exomiser-data
     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
      --analysis "${proband_id}"-analysis.yml  \
-     --exomiser.data-directory=/exomiser-data \
+     --spring.config.location=$application_properties \
+     --exomiser.data-directory='.' \
      --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
      --exomiser.phenotype.data-version=${params.phenotype_data_version}
     """
