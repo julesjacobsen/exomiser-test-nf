@@ -122,7 +122,7 @@ process run_exomiser {
     // TODO: how to enable NextFlow to run this using the container specified entry-point rather than /bin/bash?
 //     container = 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
     container 'quay.io/lifebitai/exomiser:12.1.0'
-    containerOptions "-v ${params.exomiser_data_path}:/exomiser-data"
+    containerOptions "-v exomiser-data:/exomiser-data"
 //     publishDir "${params.report_dir}", mode: 'copy'
 
     input:
