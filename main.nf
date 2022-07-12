@@ -56,7 +56,6 @@ process prepare_exomiser_input_files {
     input:
     set val(run_id), val(proband_id), val(hpo), path(vcf_path), path(vcf_index_path), val(proband_sex), val(mother_id), val(father_id) from ch_input
     path(template_config_yaml) from ch_template_config_yaml
-//     path(template_application_properties) from ch_template_application_properties
 
     output:
     file "${proband_id}*.{ped,yml,gz}" into ch_input_files
@@ -129,6 +128,7 @@ process run_exomiser {
         set val(proband_id) from ch_proband_id
         path(x) from ch_input_files
         path(exomiser_data_path) from ch_exomiser_data_path
+        path(application_properties) from ch_template_application_properties
 
 //     output:
 //         file "${proband_id}*.{html,json,tsv}" into ch_out
@@ -140,6 +140,7 @@ process run_exomiser {
     ln -s "\$PWD/$exomiser_data_path/" /data/exomiser-data
     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
      --analysis "${proband_id}"-analysis.yml  \
+     --spring.config.location=$application_properties \
      --exomiser.data-directory='.' \
      --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
      --exomiser.phenotype.data-version=${params.phenotype_data_version}
