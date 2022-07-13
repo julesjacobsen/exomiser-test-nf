@@ -112,7 +112,7 @@ def toPedSex(sex) {
 // }
 
 process run_exomiser {
-    disk = '100.GB'
+    disk = '500.GB'
     cpus = 4
     memory = '12.GB'
     // TODO: how to enable NextFlow to run this using the container specified entry-point rather than /bin/bash?
