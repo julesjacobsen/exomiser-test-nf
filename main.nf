@@ -118,26 +118,27 @@ process run_exomiser {
     // TODO: how to enable NextFlow to run this using the container specified entry-point rather than /bin/bash?
 //     container = 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
     container 'quay.io/lifebitai/exomiser:12.1.0'
-    containerOptions "-v ${task.workDir.resolve('exomiser-data')}:/exomiser-data"
-//     publishDir "${params.report_dir}", mode: 'copy'
+    // providing exomiser-data via containerOptions -v doesn't work in awsbatch but otherwise works perfectly on a local machine
+    // see: https://www.nextflow.io/docs/latest/aws.html#container-options
+//     containerOptions "-v ${task.workDir.resolve('exomiser-data')}:/exomiser-data"
 
     input:
         set val(proband_id) from ch_proband_id
         path(x) from ch_input_files
-        path(exomiser_data_path) from ch_exomiser_data_path
+        set path(exomiser_data_path) from ch_exomiser_data_path
 
     output:
         file "${proband_id}*.{html,json,tsv}" into ch_out
 
     script:
     """
-    ls -l /
-    ls -l /exomiser-data
-    ls -l /exomiser-data/exomiser-data
-#     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
-#      --analysis "${proband_id}"-analysis.yml  \
-#      --exomiser.data-directory=/exomiser-data/exomiser-data \
-#      --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
-#      --exomiser.phenotype.data-version=${params.phenotype_data_version}
+    ABSOLUTE_EXOMISER_DATA_PATH=`readlink -f ${exomiser_data_path}`
+    echo \$ABSOLUTE_EXOMISER_DATA_PATH
+    ls -l \$ABSOLUTE_EXOMISER_DATA_PATH
+    java -jar /exomiser/exomiser-cli-12.1.0.jar  \
+      --analysis "${proband_id}"-analysis.yml  \
+      --exomiser.data-directory=\$ABSOLUTE_EXOMISER_DATA_PATH \
+      --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
+      --exomiser.phenotype.data-version=${params.phenotype_data_version}
     """
 }
