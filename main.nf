@@ -131,10 +131,13 @@ process run_exomiser {
 
     script:
     """
-    java -jar /exomiser/exomiser-cli-12.1.0.jar  \
-     --analysis "${proband_id}"-analysis.yml  \
-     --exomiser.data-directory=/exomiser-data \
-     --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
-     --exomiser.phenotype.data-version=${params.phenotype_data_version}
+    ls -l /
+    ls -l /exomiser-data
+    ls -l /exomiser-data/exomiser-data
+#     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
+#      --analysis "${proband_id}"-analysis.yml  \
+#      --exomiser.data-directory=/exomiser-data/exomiser-data \
+#      --exomiser.${params.assembly}.data-version=${params.assembly_data_version} \
+#      --exomiser.phenotype.data-version=${params.phenotype_data_version}
     """
 }
