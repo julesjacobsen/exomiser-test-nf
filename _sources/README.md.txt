@@ -45,4 +45,20 @@ index.html will be generated in `docs/src/build/html` folder
 -->
 
 ```bash
+Usage:
+The typical command for running the pipeline is as follows:
+nextflow run main.nf --bams sample.bam [Options]
+
+Inputs Options:
+--input         Input file
+
+Resource Options:
+--max_cpus      Maximum number of CPUs (int)
+                (default: 2)  
+--max_memory    Maximum memory (memory unit)
+                (default: 4 GB)
+--max_time      Maximum time (time unit)
+                (default: 8h)
+See here for more info: https://github.com/lifebit-ai/hla/blob/master/docs/usage.md
+
 ```
