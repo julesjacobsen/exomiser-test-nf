@@ -40,13 +40,9 @@ Channel
     .map { run_id, proband_id, hpo, vcf_path, vcf_index_path, proband_sex, mother_id, father_id -> [ run_id, proband_id, hpo, file(vcf_path), file(vcf_index_path), proband_sex, mother_id, father_id ] }
     .into { ch_input; ch_input_view }
 
-    ch_input_view.view()
-
-Channel
+ch_exomiser_data_path = Channel
     .fromPath("${params.exomiser_data_path}", type: 'dir')
-    .map { exomiser_data_path -> [file(exomiser_data_path)] }
-    .set { ch_exomiser_data_path }
-
+    .map { exomiser_data_path -> file(exomiser_data_path) }
 
 // Define Process
 process prepare_exomiser_input_files {
@@ -122,7 +118,7 @@ process run_exomiser {
     // TODO: how to enable NextFlow to run this using the container specified entry-point rather than /bin/bash?
 //     container = 'docker.io/exomiser/exomiser-cli@sha256:2f0d869de8b06feb0abf8ac913f52937771ec947f8bdf956167925ad78b273e2'
     container 'quay.io/lifebitai/exomiser:12.1.0'
-    containerOptions "-v "\$PWD/exomiser-data/":/exomiser-data"
+    containerOptions "-v ${task.workDir.resolve('exomiser-data')}:/exomiser-data"
 //     publishDir "${params.report_dir}", mode: 'copy'
 
     input:
@@ -130,12 +126,11 @@ process run_exomiser {
         path(x) from ch_input_files
         path(exomiser_data_path) from ch_exomiser_data_path
 
-//     output:
-//         file "${proband_id}*.{html,json,tsv}" into ch_out
+    output:
+        file "${proband_id}*.{html,json,tsv}" into ch_out
 
     script:
     """
-    ls -l /exomiser-data
     java -jar /exomiser/exomiser-cli-12.1.0.jar  \
      --analysis "${proband_id}"-analysis.yml  \
      --exomiser.data-directory=/exomiser-data \
